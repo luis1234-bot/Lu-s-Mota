@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resumidor de Vídeos</title>
+</head>
+<body>
+    <h1>Resumidor de Vídeos do YouTube</h1>
+
+    <form method="POST">
+        <label for="youtube_url">Cole a URL do vídeo do YouTube:</label><br>
+        <input type="text" id="youtube_url" name="youtube_url" required><br><br>
+        <button type="submit">Gerar Resumo</button>
+    </form>
+
+    {% if resumo %}
+        <h2>Resumo do Vídeo:</h2>
+        <p>{{ resumo }}</p>
+    {% endif %}
+
+    {% if erro %}
+        <h2>Erro:</h2>
+        <p style="color: red;">{{ erro }}</p>
+    {% endif %}
+</body>
+</html>

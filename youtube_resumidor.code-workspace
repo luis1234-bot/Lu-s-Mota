@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Resumidor</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1 class="mt-5">Resumidor de Vídeos do YouTube</h1>
+        <form id="form">
+            <div class="form-group">
+                <label for="url">Link do vídeo do YouTube:</label>
+                <input type="text" class="form-control" id="url" placeholder="Cole o link aqui">
+            </div>
+            <button type="submit" class="btn btn-primary">Gerar Resumo</button>
+        </form>
+
+        <h3 class="mt-5">Resumo Gerado:</h3>
+        <pre id="resumo"></pre>
+        <div id="erro" style="color:red; display:none;"></div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $('#form').on('submit', function(event) {
+            event.preventDefault();
+
+            var url = $('#url').val();
+
+            if (!url) {
+                alert("Por favor, insira a URL.");
+                return;
+            }
+
+            $('#resumo').text('Carregando...');
+            $('#erro').hide();
+
+            $.post('/gerar_resumo', {url: url}, function(response) {
+                $('#resumo').text(response.resumo);
+            }).fail(function(jqXHR) {
+                $('#erro').text(jqXHR.responseJSON.erro).show();
+            });
+        });
+    </script>
+</body>
+</html>
