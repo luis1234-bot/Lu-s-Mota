@@ -1,10 +1,8 @@
 from flask import Flask, render_template, request
 from youtube_tools import extract_video_id, summarize_youtube_video
 
-# Primeiro cria a instância do Flask
 app = Flask(__name__)
 
-# Depois define as rotas
 @app.route("/", methods=["GET", "POST"])
 def index():
     summary = ""
@@ -12,7 +10,7 @@ def index():
     
     if request.method == "POST":
         url = request.form.get("youtube_url")
-        if url:  # Verifica se a URL não está vazia
+        if url:
             try:
                 summary = summarize_youtube_video(url)
             except Exception as e:
@@ -22,5 +20,4 @@ def index():
 
     return render_template("index.html", resumo=summary, erro=error)
 
-if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+# Remova o app.run() para produção
