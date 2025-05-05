@@ -1,90 +1,67 @@
 from youtube_transcript_api import YouTubeTranscriptApi
-from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import pipeline
 import re
 from typing import Optional
-import torch
 
-# Configurações de otimização
-USE_FASTER_MODEL = True  # Alternar para False se quiser maior qualidade
-MAX_INPUT_LENGTH = 1024
-SUMMARY_LENGTH = 130
+# Configurações otimizadas para o Render (plano gratuito)
+MODEL_NAME = "sshleifer/distilbart-cnn-6-6"  # Modelo leve (6 camadas)
+MAX_INPUT_LENGTH = 512  # Reduzido para economizar memória
+SUMMARY_LENGTH = 100
 MIN_LENGTH = 30
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+# Cache global do modelo (carregado apenas quando necessário)
+_summarizer = None
 
 def extract_video_id(video_url: str) -> Optional[str]:
     """Extrai o ID do vídeo de forma otimizada."""
     match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11})", video_url)
     return match.group(1) if match else None
 
-def initialize_summarizer():
-    """Carrega o modelo de sumarização de forma eficiente."""
-    if USE_FASTER_MODEL:
-        model_name = "sshleifer/distilbart-cnn-12-6"  # Modelo 4x mais rápido
-    else:
-        model_name = "facebook/bart-large-cnn"
-    
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_name).to(DEVICE)
-    return pipeline(
-        "summarization",
-        model=model,
-        tokenizer=tokenizer,
-        device=0 if DEVICE == "cuda" else -1
-    )
-
-# Carrega o modelo uma vez no início (cache)
-summarizer = initialize_summarizer()
+def get_summarizer():
+    """Carrega o modelo apenas quando necessário com configurações leves."""
+    global _summarizer
+    if _summarizer is None:
+        _summarizer = pipeline(
+            "summarization",
+            model=MODEL_NAME,
+            device=-1,  # Força uso de CPU
+            framework="pt"
+        )
+    return _summarizer
 
 def summarize_youtube_video(video_url: str) -> str:
-    """Versão otimizada para maior velocidade."""
+    """Versão ultra-otimizada para o Render free tier."""
     try:
-        # 1. Validação e extração do ID
-        if not (video_id := extract_video_id(video_url)):
-            return "⚠️ URL inválida"
+        # 1. Validação rápida
+        video_id = extract_video_id(video_url)
+        if not video_id:
+            return "URL inválida"
         
-        # 2. Obtém apenas parte da transcrição (primeiros 100 segmentos)
+        # 2. Obtém apenas os primeiros 60 segmentos (30-60s de vídeo)
         transcript = YouTubeTranscriptApi.get_transcript(
             video_id,
-            languages=['pt', 'en'],
-            preserve_formatting=True
-        )[:100]  # Limita a 100 segmentos para maior velocidade
+            languages=['pt'],
+            preserve_formatting=False
+        )[:60]
         
         if not transcript:
-            return "⚠️ Sem transcrição disponível"
+            return "Transcrição não disponível"
         
-        # 3. Pré-processamento eficiente
-        text = " ".join(t['text'] for t in transcript)
-        text = text.replace("\n", " ")[:MAX_INPUT_LENGTH*3]  # Limita o tamanho
+        # 3. Texto compactado (remove espaços extras)
+        text = " ".join(t['text'].strip() for t in transcript)
+        text = " ".join(text.split())[:MAX_INPUT_LENGTH]  # Corte seguro
         
-        # 4. Sumarização em chunks paralelizáveis
-        chunks = [
-            text[i:i+MAX_INPUT_LENGTH] 
-            for i in range(0, min(len(text), MAX_INPUT_LENGTH*3), MAX_INPUT_LENGTH)
-        ]
+        # 4. Sumarização minimalista
+        summarizer = get_summarizer()
+        summary = summarizer(
+            text,
+            max_length=SUMMARY_LENGTH,
+            min_length=MIN_LENGTH,
+            do_sample=False,
+            truncation=True
+        )
         
-        summaries = []
-        for chunk in chunks:
-            summary = summarizer(
-                chunk,
-                max_length=SUMMARY_LENGTH,
-                min_length=MIN_LENGTH,
-                do_sample=False,
-                truncation=True
-            )
-            summaries.append(summary[0]['summary_text'])
-        
-        return " ".join(summaries).strip()
+        return summary[0]['summary_text'].strip()
     
     except Exception as e:
-        return f"⚠️ Erro: {str(e)}"
-
-# Exemplo de uso rápido
-if __name__ == "__main__":
-    import time
-    start = time.time()
-    
-    # Teste com um vídeo curto (opcional)
-    test_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    print("Resumo:", summarize_youtube_video(test_url))
-    
-    print(f"Tempo total: {time.time() - start:.2f} segundos")
+        return f"Erro: {str(e)}"

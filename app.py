@@ -1,6 +1,10 @@
 from flask import Flask, render_template, request
 from youtube_tools import extract_video_id, summarize_youtube_video
 
+import os
+import resource
+resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024, 512 * 1024 * 1024))  # Limite de 512MB
+
 app = Flask(__name__)
 
 @app.route("/", methods=["GET", "POST"])
